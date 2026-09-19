@@ -4,6 +4,7 @@ from core.loader import (
     get_file_metadata,
     load_file,
 )
+from core.schema import analyze_schema
 
 
 st.set_page_config(
@@ -50,6 +51,7 @@ for uploaded_file in uploaded_files:
             uploaded_file,
             dataframe,
         )
+        schema = analyze_schema(dataframe)
 
         with st.expander(
             f"📄 {metadata['name']}",
@@ -72,6 +74,32 @@ for uploaded_file in uploaded_files:
 
             st.write("**Columns:**")
             st.write(", ".join(metadata["column_names"]))
+
+            st.write("**Detected schema:**")
+
+            schema_rows = []
+
+            for column_name, column_info in schema["columns"].items():
+                schema_rows.append(
+                    {
+                        "Column": column_name,
+                        "Type": column_info["type"],
+                        "Missing": column_info["null_count"],
+                        "Unique Values": column_info["unique_count"],
+                    }
+                )
+
+            st.dataframe(
+                schema_rows,
+                use_container_width=True,
+            )
+
+            if schema["total_missing_values"] == 0:
+                st.success("No missing values detected.")
+            else:
+                st.warning(
+                    f"{schema['total_missing_values']} missing values detected."
+                )
 
             st.write("**Preview:**")
             st.dataframe(

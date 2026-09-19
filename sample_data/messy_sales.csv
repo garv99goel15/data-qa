@@ -1,0 +1,5 @@
+Date,Product,Region,Units,Revenue
+2026-01-01,Laptop,North,10,800000
+2026-01-02,Phone,South,,500000
+2026-01-03,,West,15,300000
+2026-01-04,Laptop,North,8,640000
