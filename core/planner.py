@@ -50,10 +50,35 @@ The JSON must contain:
 - metric
 - aggregation
 - filters
+- group_by
+- visualization
 
 The filters field must be a list.
 
 If there are no filters, return an empty list.
+
+If there is no grouping, return an empty list for group_by.
+
+Supported visualizations:
+bar
+line
+none
+
+Use "bar" when comparing categories.
+
+Use "line" when showing a trend over time.
+For time-based trends, use "Date" as the group_by column.
+
+Use "none" when a chart is not useful.
+
+For questions asking about trends over time, growth over time,
+monthly changes, or revenue over months, use:
+- group_by: ["Date"]
+- visualization: "line"
+
+For category comparisons such as revenue by region or revenue by product, use:
+- group_by: ["Region"] or ["Product"]
+- visualization: "bar"
 
 Return ONLY valid JSON.
 Do not include markdown.
@@ -69,7 +94,9 @@ JSON:
     "operation": "aggregate",
     "metric": "Revenue",
     "aggregation": "sum",
-    "filters": []
+    "filters": [],
+    "group_by": [],
+    "visualization": "none"
 }}
 
 Example:
@@ -88,7 +115,39 @@ JSON:
             "operator": "equals",
             "value": "North"
         }}
-    ]
+    ],
+    "group_by": [],
+    "visualization": "none"
+}}
+
+Example:
+
+User question:
+Compare total revenue by region.
+
+JSON:
+{{
+    "operation": "aggregate",
+    "metric": "Revenue",
+    "aggregation": "sum",
+    "filters": [],
+    "group_by": ["Region"],
+    "visualization": "bar"
+}}
+
+Example:
+
+User question:
+Show the revenue trend from January to March.
+
+JSON:
+{{
+    "operation": "aggregate",
+    "metric": "Revenue",
+    "aggregation": "sum",
+    "filters": [],
+    "group_by": ["Date"],
+    "visualization": "line"
 }}
 
 User question:

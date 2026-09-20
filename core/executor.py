@@ -155,16 +155,49 @@ def execute_query(
     group_by = query_plan.get("group_by")
 
     if group_by:
+        group_by = group_by.copy()
+
+        if "Date" in group_by:
+            filtered_dataframe = filtered_dataframe.copy()
+
+            filtered_dataframe["Date"] = pd.to_datetime(
+                filtered_dataframe["Date"],
+                errors="coerce",
+            )
+
+            filtered_dataframe["Month"] = (
+                filtered_dataframe["Date"]
+                .dt.to_period("M")
+                .astype(str)
+            )
+
+            group_by = [
+                "Month" if column == "Date" else column
+                for column in group_by
+            ]
+
         for column in group_by:
             if column not in filtered_dataframe.columns:
                 raise ValueError(
                     f"Group-by column '{column}' does not exist."
                 )
 
+    if group_by:
+        for column in group_by:
+            if column not in filtered_dataframe.columns:
+                raise ValueError(
+                    f"Group-by column '{column}' does not exist."
+                )
+
+        aggregation = query_plan["aggregation"]
+
+        if aggregation == "average":
+            aggregation = "mean"
+
         grouped_result = (
             filtered_dataframe
             .groupby(group_by, dropna=False)[query_plan["metric"]]
-            .agg(query_plan["aggregation"])
+            .agg(aggregation)
             .reset_index()
         )
 

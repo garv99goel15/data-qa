@@ -2,6 +2,8 @@ from typing import Any
 
 import pandas as pd
 
+from core.schema import schemas_are_compatible
+
 
 def combine_datasets(
     datasets: dict[str, pd.DataFrame],
@@ -18,7 +20,20 @@ def combine_datasets(
 
     dataframes = []
 
+    first_filename = next(iter(datasets))
+    first_dataframe = datasets[first_filename]
+
     for filename, dataframe in datasets.items():
+
+        if not schemas_are_compatible(
+            first_dataframe,
+            dataframe,
+        ):
+            raise ValueError(
+                f"Dataset '{filename}' has an incompatible "
+                "schema with the other selected datasets."
+            )
+
         dataframe_copy = dataframe.copy()
 
         dataframe_copy["source_file"] = filename

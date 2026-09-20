@@ -1,6 +1,7 @@
 import streamlit as st
 
 from core.dataset import combine_datasets
+from core.validator import validate_query_plan
 from core.executor import execute_query
 from core.loader import (
     get_file_metadata,
@@ -144,9 +145,22 @@ if datasets:
             for name in selected_datasets
         }
 
-        dataframe = combine_datasets(
-            selected_dataset_map
-        )
+        try:
+            dataframe = combine_datasets(
+                selected_dataset_map
+            )
+
+        except Exception as error:
+            st.error(
+                f"Could not combine the selected datasets: {error}"
+            )
+
+            st.info(
+                "Select datasets with compatible columns "
+                "for cross-file analysis."
+            )
+
+            st.stop()
 
         schema = analyze_schema(dataframe)
 
@@ -154,33 +168,93 @@ if datasets:
             schema["columns"].keys()
         )
 
-        query_plan = create_query_plan(
-            question,
-            available_columns,
-        )
-
-        st.write("### Query plan")
-        st.json(query_plan)
         try:
+            query_plan = create_query_plan(
+                question,
+                available_columns,
+            )
+
+            query_plan = validate_query_plan(
+                query_plan,
+                dataframe,
+            )
+
+            st.write("### Query plan")
+            st.json(query_plan)
             result = execute_query(
                 dataframe,
                 query_plan,
             )
 
-            st.write("### Answer")
-
             if hasattr(result, "to_dict"):
+
                 st.dataframe(
                     result,
                     use_container_width=True,
                 )
-            else:
-                st.metric(
-                    "Result",
-                    f"{result:,.2f}",
+
+                visualization = query_plan.get(
+                    "visualization",
+                    "none",
                 )
+
+                group_by = query_plan.get(
+                    "group_by",
+                    [],
+                )
+
+                if group_by and group_by[0] == "Date":
+                    chart_group_column = "Month"
+                else:
+                    chart_group_column = group_by[0] if group_by else None
+
+                if visualization == "bar" and group_by:
+                    st.write("### Visual insight")
+
+                    chart_data = result.set_index(
+                        chart_group_column
+                    )
+
+                    st.bar_chart(
+                        chart_data[
+                            [query_plan["metric"]]
+                        ]
+                    )
+
+                elif visualization == "line" and group_by:
+                    st.write("### Visual insight")
+
+                    chart_data = result.set_index(
+                        chart_group_column
+                    )
+
+                    st.line_chart(
+                        chart_data[
+                            [query_plan["metric"]]
+                        ]
+                    )
+
+            else:
+                st.write("### 💰 Answer")
+
+                if query_plan["metric"].lower() == "revenue":
+                    st.metric(
+                        "Total Revenue",
+                        f"₹{result:,.0f}",
+                    )
+                else:
+                    st.metric(
+                        "Result",
+                        f"{result:,.2f}",
+                    )
 
         except Exception as error:
             st.error(
                 f"Could not answer the question: {error}"
             )
+            st.info(
+                "Try rephrasing your question or checking that "
+                "the required columns exist in the selected datasets."
+            )
+
+            st.stop()
