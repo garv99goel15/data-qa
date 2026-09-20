@@ -1,9 +1,12 @@
 import streamlit as st
 
+from core.dataset import combine_datasets
+from core.executor import execute_query
 from core.loader import (
     get_file_metadata,
     load_file,
 )
+from core.planner import create_query_plan
 from core.schema import analyze_schema
 
 
@@ -42,6 +45,7 @@ st.divider()
 
 st.header("Your datasets")
 
+datasets = {}
 
 for uploaded_file in uploaded_files:
 
@@ -51,6 +55,7 @@ for uploaded_file in uploaded_files:
             uploaded_file,
             dataframe,
         )
+        datasets[metadata["name"]] = dataframe
         schema = analyze_schema(dataframe)
 
         with st.expander(
@@ -111,3 +116,71 @@ for uploaded_file in uploaded_files:
         st.error(
             f"Could not load `{uploaded_file.name}`: {error}"
         )
+
+
+st.divider()
+
+st.header("Ask a question")
+
+question = st.text_input(
+    "Ask something about your data",
+    placeholder="Example: What is the total revenue from the North region?",
+)
+
+if datasets:
+    selected_datasets = st.multiselect(
+        "Datasets to analyze",
+        options=list(datasets.keys()),
+        default=list(datasets.keys()),
+    )
+    if st.button("Ask", type="primary") and question:
+
+        if not selected_datasets:
+            st.warning("Select at least one dataset.")
+            st.stop()
+
+        selected_dataset_map = {
+            name: datasets[name]
+            for name in selected_datasets
+        }
+
+        dataframe = combine_datasets(
+            selected_dataset_map
+        )
+
+        schema = analyze_schema(dataframe)
+
+        available_columns = list(
+            schema["columns"].keys()
+        )
+
+        query_plan = create_query_plan(
+            question,
+            available_columns,
+        )
+
+        st.write("### Query plan")
+        st.json(query_plan)
+        try:
+            result = execute_query(
+                dataframe,
+                query_plan,
+            )
+
+            st.write("### Answer")
+
+            if hasattr(result, "to_dict"):
+                st.dataframe(
+                    result,
+                    use_container_width=True,
+                )
+            else:
+                st.metric(
+                    "Result",
+                    f"{result:,.2f}",
+                )
+
+        except Exception as error:
+            st.error(
+                f"Could not answer the question: {error}"
+            )
